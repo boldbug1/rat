@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <string.h>
+#include <stdlib.h>
 #define MAX 1000
 
 int createfile(const char *filename,const char *filecontent){
@@ -12,6 +13,32 @@ int createfile(const char *filename,const char *filecontent){
     return 0;
     fclose(fp);
 
+}
+
+char *get_filecontent(const char *filename) {
+    FILE *fp = fopen(filename, "r");
+    if (!fp) {
+        return NULL;
+    }
+
+   
+    fseek(fp, 0, SEEK_END);
+    long file_size = ftell(fp);
+    rewind(fp);
+
+   
+    char *content = malloc(file_size + 1);
+    if (!content) {
+        fclose(fp);
+        return NULL; 
+    }
+
+   
+    size_t read_size = fread(content, sizeof(char), file_size, fp);
+    content[read_size] = '\0';
+
+    fclose(fp);
+    return content;
 }
 
 int concat(const char *filename1,const char *filename2){
@@ -61,6 +88,44 @@ int concat(const char *filename1,const char *filename2){
     
 }
 
+int new_line_count(const char *filecontent){
+    int n =0;
+    if(strlen(filecontent) == 0){
+        return 0;
+    }
+    for(int i =0;filecontent[i] != '\0';i++){
+        if(filecontent[i] == '\n'){
+            n++;
+        }
+    }
+
+    return n;
+}
+
+char  *numbered_out(const char *filecontent){
+    int line_num = 1;
+    int j = 0;
+    int num_idx = 0;
+    char *numbered_out = malloc(strlen(filecontent) + ((4 * sizeof(char)) * new_line_count(filecontent)));
+    numbered_out[0] = '\0';
+    while(filecontent[j] != '\0'){
+        char buffer[MAX];
+        int buff_index = sprintf(buffer, "\033[33m%4d \033[0m", line_num);
+        while(filecontent[j] != '\n' && filecontent[j] != '\0'){
+            buffer[buff_index++] = filecontent[j];
+            j++;
+        }
+        buffer[buff_index++] = '\n';
+        buffer[buff_index] = '\0';
+        if(filecontent[j] == '\n'){
+            j++;
+        }
+        line_num++;
+        strcat(numbered_out,buffer);
+    }
+    return numbered_out;
+}
+
 int main(int argc , char *argv[]){
     if(argc < 2 || argc > 4){
         printf("Error : No arguments passed\nUsage : rat <filename>\n");
@@ -83,6 +148,18 @@ int main(int argc , char *argv[]){
         }else{
             printf("Usage : rat -a <filename1> <filename2>\n");
             return -1;
+        }
+    }else if(strcmp("-n",argv[1]) == 0){
+        if(argc == 3){
+            const char *filename = argv[2];
+             char *filecontent = get_filecontent(filename);
+             if(filecontent == NULL){
+                printf("Error : Could not read file %s\n",filename);
+             }
+            char *numbered_text = numbered_out(filecontent);
+            printf("\n%s\n",numbered_text);
+        }else{
+            printf("Usage : rat -n <filename>");
         }
     }else{
          const char *filename = argv[1];
