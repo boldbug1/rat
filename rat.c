@@ -87,24 +87,22 @@ int new_line_count(const char *filecontent){
 char *numbered_out(const char *filecontent){
     int line_num = 1;
     int j = 0;
-    int num_idx = 0;
     char *numbered_out = malloc(strlen(filecontent) + ((4 * sizeof(char)) * new_line_count(filecontent)));
-    numbered_out[0] = '\0';
+    if(!numbered_out)return NULL;
+    char *output_ptr = numbered_out;
     while(filecontent[j] != '\0'){
-        char buffer[MAX];
-        int buff_index = sprintf(buffer, "\033[33m%4d \033[0m", line_num);
+        int written = sprintf(output_ptr, "\033[33m%4d \033[0m", line_num);
+        output_ptr+=written;
         while(filecontent[j] != '\n' && filecontent[j] != '\0'){
-            buffer[buff_index++] = filecontent[j];
-            j++;
+            *output_ptr++ = filecontent[j++];
         }
-        buffer[buff_index++] = '\n';
-        buffer[buff_index] = '\0';
+        *output_ptr++ = '\n';
         if(filecontent[j] == '\n'){
             j++;
         }
         line_num++;
-        strcat(numbered_out,buffer);
     }
+    *output_ptr = '\0';
     return numbered_out;
 }
 
