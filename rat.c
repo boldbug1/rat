@@ -3,6 +3,17 @@
 #include <stdlib.h>
 #define MAX 1000
 
+typedef struct {
+    int show_numbers;
+    int append_mode;
+    char *output_file;
+} RatConfig;
+
+
+//to-do :
+//move cli arguments parsing and error handling logic from main to seperate functions
+//use 4kb buffer to ouput file instead of storing them in memory
+
 int createfile(const char *filename,const char *filecontent){
     FILE *fp;
     fp = fopen(filename,"w");
@@ -46,6 +57,7 @@ int concat(const char *filename1,const char *filename2){
     char *filecontent2 = get_filecontent(filename2);
     if(filecontent2 == NULL){
         printf("Error: getfilecontent returned an error status (-1)\n");
+        free(filecontent1);
         return -1;
     }
     size_t finalsize = strlen(filecontent1) + strlen(filecontent2);
@@ -66,7 +78,6 @@ int concat(const char *filename1,const char *filename2){
     printf("%s",finalfile);
     free(filecontent1);
     free(filecontent2);
-    free(finalfile);
     return 0;
     
 }
