@@ -24,23 +24,34 @@ gcc rat.c -o rat
 ## Usage
 
 **1. Basic file reading:**
-
+Spit a single file or a stream of multiple sequential files directly to your stdout.
 ```bash
-./rat <filename>
+./rat filename.txt
+./rat file1.txt file2.txt file3.txt
 
 ```
 
-**2. Print a file with line numbers:**
+**2. Print with custom-styled line numbers (`-n`):**
+Prints your file with sequential line numbers that accurately track across multiple files without resetting.
 
 ```bash
-./rat -n <filename>
+./rat -n filename.txt
 
 ```
 
-**3. Concatenate two files:**
+**3. Direct output redirection (`-o`):**
+Write the output of your files directly into a new target file rather than flooding your terminal screen.
 
 ```bash
-./rat -a <filename1> <filename2>
+./rat -o output.txt input1.txt input2.txt
+
+```
+
+**4. Append output to an existing file (`-a`):**
+Safely dump your files onto the tail-end of an existing document without wiping out its current contents.
+
+```bash
+./rat -a logs.txt new_logs.txt
 
 ```
 
