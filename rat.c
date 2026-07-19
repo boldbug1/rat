@@ -1,7 +1,8 @@
 #include <stdio.h>
 #include <string.h>
 #include <stdlib.h>
-#define MAX 1000
+#include <unistd.h>
+#define BUFFER_SIZE 4096//4kb buffer size
 
 typedef struct {
     int show_numbers;
@@ -9,10 +10,53 @@ typedef struct {
     char *output_file;
 } RatConfig;
 
+int createfile(const char *filename,const char *filecontent);
+char *get_filecontent(const char *filename);
+char *numbered_out(const char *filecontent);
+int new_line_count(const char *filecontent);
+RatConfig parse_flags(int argc , char **argv);
+void process_files(const char *filename,int *line_counter,RatConfig config);
+int concat(const char *filename1,const char *filename2);
+
+
+/*
+to-do :
+move cli arguments parsing and error handling logic from main to seperate functions [done]
+use 4kb buffer to ouput file instead of storing them in memory [done]
+*/
 
 //to-do :
-//move cli arguments parsing and error handling logic from main to seperate functions
-//use 4kb buffer to ouput file instead of storing them in memory
+//make flags more similer to cat []
+
+
+int main(int argc , char *argv[]){
+    int line_num = 1;
+    
+    RatConfig config = parse_flags(argc,argv);
+    if(argc < 2){
+        printf("Usage : ./rat [-n] [-a] <file> <file2>\n");
+        return -1;
+    }
+
+    if (optind >= argc) {
+        fprintf(stderr, "Error: Expected at least one filename.\n");
+        fprintf(stderr, "Usage: ./rat [-n] [-a] [-o output_file] <file1> [file2 ...]\n");
+        return -1;
+    }
+
+    if(config.output_file!=NULL){
+        const char *mode = config.append_mode ? "a" : "w";
+        if(freopen(config.output_file,mode,stdout) ==NULL){
+            fprintf(stderr, "Error: Could not redirect output stream to file %s\n", config.output_file);
+            return -1;
+        }
+    }
+    
+    for(int i = optind;i < argc;i++){
+        process_files(argv[i],&line_num,config);
+    }
+    return 0;
+}
 
 int createfile(const char *filename,const char *filecontent){
     FILE *fp;
@@ -117,59 +161,65 @@ char *numbered_out(const char *filecontent){
     return numbered_out;
 }
 
-int main(int argc , char *argv[]){
-    if(argc < 2 || argc > 4){
-        printf("Error : No arguments passed\nUsage : rat <filename>\n");
-        return -1;
+RatConfig parse_flags(int argc , char **argv){
+    int option;
+    RatConfig config = {0,0,NULL};
+    while((option = getopt(argc,argv,"ano:")) != -1){
+        switch (option)
+        {
+        case 'n':
+            config.show_numbers = 1;        
+            break;
+        case 'a':
+            config.append_mode = 1;
+            break;
+        case 'o':
+            config.output_file = optarg;
+            break;
+        default:
+            printf("Usage : ./rat [-n] [-a] <file> <file2>\n");
+            exit(EXIT_FAILURE);
+            break;
+        }
     }
 
-    if(strcmp(argv[1],"-a")==0){
-        if(argc == 4){
-            const char *filename1 = argv[2];
-            const char *filename2 = argv[3];
-            int ret_code = concat(filename1,filename2);
-            if(ret_code == -1){
-                printf("Error : %s does not exist",filename1);
-                return -1;
-            }
-            if(ret_code == -2){
-                printf("Error : %s does not exist",filename2);
-                return -1;
-            }
-        }else{
-            printf("Usage : rat -a <filename1> <filename2>\n");
-            return -1;
-        }
-    }else if(strcmp("-n",argv[1]) == 0){
-        if(argc == 3){
-            const char *filename = argv[2];
-            char *filecontent = get_filecontent(filename);
-             if(filecontent == NULL){
-                printf("Error : Could not read file %s\n",filename);
-             }
-            char *numbered_text = numbered_out(filecontent);
-            printf("\n%s\n",numbered_text);
-            free(filecontent);
-        }else{
-            printf("Usage : rat -n <filename>");
-        }
-    }else{
-        const char *filename = argv[1];
-        char *filecontent = get_filecontent(filename);
-        if(filename){
-            if(filecontent){
-                if(createfile(filename,filecontent) == -1){
-                    printf("Error while creating file");
-                    return -1;
-                }
-            }
-        }
-        if(strlen(filecontent) != 0){
-            printf("%s",filecontent);
-        }
-        free(filecontent);
+    return config;
+}
+
+void process_files(const char *filename,int *line_counter,RatConfig config){
+    FILE *fp = fopen(filename,"r");
+    if(fp == NULL){
+        fprintf(stderr,"Error : Could not open file %s\n",filename);
+        return;
     }
-    
-   
-    return 0;
+
+    char buffer[BUFFER_SIZE];
+ 
+    int is_new_line = 1;
+
+    while(fgets(buffer,sizeof(buffer),fp) != NULL){
+        if(config.show_numbers){
+            if(is_new_line){
+                printf("\033[33m%4d \033[0m", (*line_counter));
+                is_new_line = 0;
+            }
+
+            printf("%s",buffer);
+
+            size_t len = strlen(buffer);
+            if(len > 0 && buffer[len - 1] == '\n') {
+                (*line_counter)++;
+                is_new_line = 1;
+            }
+        }else{
+            printf("%s",buffer);
+        }
+    }
+
+    if(!is_new_line && config.show_numbers || !is_new_line && config.append_mode){
+        printf("\n");
+        (*line_counter)++;
+    }
+
+    fclose(fp);
 }
