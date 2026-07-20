@@ -2,7 +2,8 @@
 #include <string.h>
 #include <stdlib.h>
 #include <unistd.h>
-#define BUFFER_SIZE 4096//4kb buffer size
+#include <errno.h>
+#define BUFFER_SIZE 4096 //4kb buffer size
 
 typedef struct {
     int show_numbers;
@@ -11,38 +12,27 @@ typedef struct {
 
 
 RatConfig parse_flags(int argc , char **argv);
-void process_files(const char *filename,int *line_counter,RatConfig config);
-
-
-
-/*
-to-do :
-move cli arguments parsing and error handling logic from main to seperate functions [done]
-use 4kb buffer to ouput file instead of storing them in memory [done]
-*/
-
-//to-do :
-//make flags more similer to cat []
+int process_files(const char *filename,int *line_counter,int *is_start_of_line,RatConfig config);
 
 
 int main(int argc , char *argv[]){
     int line_num = 1;
+    int is_start_of_line = 1;
     
     RatConfig config = parse_flags(argc,argv);
 
     if (optind >= argc) {
-        process_files("-",&line_num,config);
+        process_files("-",&line_num,&is_start_of_line,config);
     }else{
         for(int i = optind;i < argc;i++){
-            process_files(argv[i],&line_num,config);
+            process_files(argv[i],&line_num,&is_start_of_line,config);
         }
     }
     
     return 0;
 }
 
-//as per _dl request createfile is finally removed XD
-
+//Thanks to _dl and NgTV for suggestion for making it this optimized.
 
 RatConfig parse_flags(int argc , char **argv){
     int option;
@@ -54,7 +44,7 @@ RatConfig parse_flags(int argc , char **argv){
             config.show_numbers = 1;        
             break;
         default:
-            printf("Usage : ./rat [-n] <file> <file2>...\n");
+            fprintf(stderr,"Usage : rat [-n] <filename> <filename2>....\n");
             exit(EXIT_FAILURE);
             break;
         }
@@ -63,8 +53,8 @@ RatConfig parse_flags(int argc , char **argv){
     return config;
 }
 
-void process_files(const char *filename,int *line_counter,RatConfig config){
-    FILE *fp = fopen(filename,"r");
+int process_files(const char *filename,int *line_counter,int *is_start_of_line,RatConfig config){
+    FILE *fp;
     int is_stdin = (filename[0] == '-' && filename[1] == '\0');
 
     if(is_stdin){
@@ -72,41 +62,29 @@ void process_files(const char *filename,int *line_counter,RatConfig config){
     }else{
         fp = fopen(filename,"r");
         if(fp == NULL){
-            fprintf(stderr,"Error : Could not open file %s\n",filename);
-            return;
+            fprintf(stderr,"rat: %s: %s\n",filename,strerror(errno));
+            return -1;
         }
     }
 
+    char buffer[BUFFER_SIZE]; 
 
-    char buffer[BUFFER_SIZE];
- 
-    int is_new_line = 1;
 
     while(fgets(buffer,sizeof(buffer),fp) != NULL){
         if(config.show_numbers){
-            if(is_new_line){
-                printf("\033[33m%4d \033[0m", (*line_counter));
-                is_new_line = 0;
+            if(*is_start_of_line){
+                printf("%4d ", (*line_counter)++);
+                *is_start_of_line = 0;
             }
 
-            printf("%s",buffer);
+            fputs(buffer,stdout);
 
             size_t len = strlen(buffer);
             if(len > 0 && buffer[len - 1] == '\n') {
-                (*line_counter)++;
-                is_new_line = 1;
-            }else{
-                is_new_line = 0;
+                *is_start_of_line = 1;
             }
         }else{
-            printf("%s",buffer);
-        }
-    }
-
-    if(!is_new_line){
-        printf("\n");
-        if(config.show_numbers){
-            (*line_counter)++;
+            fputs(buffer,stdout);
         }
     }
 
